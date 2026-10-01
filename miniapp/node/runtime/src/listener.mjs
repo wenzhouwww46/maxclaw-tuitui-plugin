@@ -13,6 +13,19 @@ import { taskCard, cardAction, sendCard, updateCard } from "./cards.mjs";
 import { createAgentReporter } from "./agent-report.mjs";
 import { mediaItems, parseCommand, runCommand } from "./commands.mjs";
 
+
+export function isSuccessfulResult(result) {
+  const status = String(result?.status ?? "").toLowerCase();
+  return status === "success" || status === "succeeded" || status === "completed";
+}
+
+export function resultError(result) {
+  if (isSuccessfulResult(result)) return undefined;
+  return typeof result?.error === "string" && result.error.trim()
+    ? result.error
+    : (result?.status || "unknown error");
+}
+
 const DEFAULTS = { concurrency: 2, maxQueue: 32, maxAttachments: 5, maxAttachmentBytes: 20 * 1024 * 1024, taskTimeoutMs: 120_000, dedupeWindowMs: 24 * 60 * 60 * 1000, interactiveCards: true, agentProgress: true, commands: true };
 
 function eventType(client, body) { return body.event || body.type || body.name || client?.event?.SINGLE_CHAT; }
@@ -127,11 +140,12 @@ export function startListener(config = {}, dependencies = {}) {
       const cancelWatcher = setInterval(() => { if (tasks.isCancelRequested(taskId)) controller.abort(); }, 500);
       try {
         const result = await runExecute(route, prompt, files, { timeoutMs: options.taskTimeoutMs, signal: controller.signal, progress });
-        const ok = result?.status === "success" || result?.status === "completed";
-        const cancelled = result?.status === "cancelled" || tasks.isCancelRequested(taskId);
+        const ok = isSuccessfulResult(result);
+        const cancelled = String(result?.status ?? "").toLowerCase() === "cancelled" || tasks.isCancelRequested(taskId);
         const status = cancelled ? "cancelled" : ok ? "completed" : "failed";
-        tasks.update(taskId, { status, result, error: result?.error || (status === "failed" ? result?.status || "unknown error" : undefined) });
-        const message = cancelled ? "任务已取消。" : ok ? (result.output || "任务已完成，但没有输出。") : `任务失败：${result?.error || result?.status || "未知错误"}`;
+        const failure = resultError(result);
+        tasks.update(taskId, { status, result, ...(failure ? { error: failure } : {}) });
+        const message = cancelled ? "任务已取消。" : ok ? (result.output || "任务已完成，但没有输出。") : `任务失败：${failure}`;
         const card = cards.get(taskId);
         if (card) { try { await updateCard(client, card.target, card.messageId, taskCard({ taskId, prompt, status: cancelled ? "已取消" : ok ? "已完成" : "失败", detail: message })); } catch {} }
         await send(target, message);
