@@ -1,0 +1,13 @@
+{
+  "schemaVersion": 1,
+  "mcpServers": {
+    "maxclaw-tuitui": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["./server.js"],
+      "env": {},
+      "description": "Controls the user-enabled maxclaw Tuitui listener.",
+      "timeout": 30000
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "schemaVersion": 1,
+  "name": "maxclaw-tuitui",
+  "displayName": "maxclaw Tuitui",
+  "version": "5.0.0",
+  "description": "Manage a user-enabled Tuitui listener through MiniMax Code.",
+  "author": "maxclaw",
+  "icon": "icon.png",
+  "darkIcon": "icon-dark.png",
+  "category": "Code",
+  "exampleQueries": ["Use maxclaw Tuitui to check listener status."],
+  "apps": [],
+  "mcpServers": ["servers.mcp.json"],
+  "skills": ["skills/maxclaw-tuitui/SKILL.md"]
+}
