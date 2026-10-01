@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm } from "node:fs/promises";
+import { cp, mkdtemp, rm } from "node:fs/promises";
 import { readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -61,6 +61,30 @@ try {
 } finally {
   await lifecycle.dispose();
   await rm(dataDir, { recursive: true, force: true });
+}
+
+const isolatedRoot = await mkdtemp(join(tmpdir(), "maxclaw-miniapp-isolated-"));
+const isolatedDataDir = await mkdtemp(join(tmpdir(), "maxclaw-miniapp-isolated-data-"));
+await cp(join(root, "miniapp/client"), join(isolatedRoot, "client"), { recursive: true });
+await cp(join(root, "miniapp/node"), join(isolatedRoot, "node"), { recursive: true });
+process.env.MAXCLAW_TUITUI_DATA_DIR = isolatedDataDir;
+const isolatedModule = await import(`${join(isolatedRoot, "node/server.mjs")}?isolated=${Date.now()}`);
+const isolatedContext = {
+  pluginRoot: isolatedRoot,
+  dataDir: isolatedDataDir,
+  listen: { host: "127.0.0.1", port: 0 },
+  signal: new AbortController().signal,
+  logger: { info() {}, error() {} },
+};
+const isolatedLifecycle = await isolatedModule.start(isolatedContext);
+try {
+  const isolatedPage = await fetch(`http://${isolatedContext.listen.host}:${isolatedContext.listen.port}/`);
+  assert.equal(isolatedPage.status, 200);
+  assert.match(await isolatedPage.text(), /maxclaw Tuitui/);
+} finally {
+  await isolatedLifecycle.dispose();
+  await rm(isolatedRoot, { recursive: true, force: true });
+  await rm(isolatedDataDir, { recursive: true, force: true });
 }
 
 console.log("MiniApp settings: ok");

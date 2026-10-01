@@ -1,0 +1,62 @@
+{
+  "name": "@qihoo/tuitui-bot-sdk",
+  "version": "1.0.24",
+  "description": "tuitui bot sdk(node js)",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "samples/README.md",
+    "samples/.env.example",
+    "samples/src",
+    "samples/tsconfig.json"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "test:coverage": "vitest run --config vitest.config.ts --coverage",
+    "test:e2e:roundtrip": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/roundtrip.test.ts",
+    "test:e2e:im": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/im.test.ts",
+    "test:e2e:file": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/file.test.ts",
+    "test:e2e:cards": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/interactive-cards.test.ts",
+    "test:e2e:property": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/property.test.ts",
+    "test:e2e:agent": "npm run build && vitest run --config vitest.e2e.config.ts test/e2e/agent.test.ts",
+    "test:e2e": "npm run build && vitest run --config vitest.e2e.config.ts",
+    "sample:receive": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/receive.js",
+    "sample:send-text": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/send-text.js",
+    "sample:send-file": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/send-file.js",
+    "sample:file-op": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/file_op.js",
+    "sample:send-mixed": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/send-mixed.js",
+    "sample:send-post": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/send-post.js",
+    "sample:send-interactive": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/send-interactive.js",
+    "sample:report-agent": "npm run build && tsc -p samples/tsconfig.json && node samples/dist/agent-report.js",
+    "prepack": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && npm run build",
+    "prepublishOnly": "npm test"
+  },
+  "engines": {
+    "node": ">=18.3.0"
+  },
+  "dependencies": {
+    "ws": "^8.18.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.0.0",
+    "@types/ws": "^8.18.1",
+    "@vitest/coverage-v8": "^4.0.0",
+    "dotenv": "^17.4.2",
+    "typescript": "^5.8.0",
+    "vitest": "^4.0.0"
+  }
+}

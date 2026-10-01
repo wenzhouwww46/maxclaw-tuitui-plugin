@@ -1,7 +1,8 @@
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const DEFAULT_DATA_DIR = join(homedir(), ".maxclaw-tuitui");
 const MAX_BODY_BYTES = 64 * 1024;
@@ -47,12 +48,13 @@ export async function start(context) {
 
   // Load the existing service only after the shared data directory is selected.
   const [{ createServiceManager }, { createStore }] = await Promise.all([
-    import("../../src/service.mjs"),
-    import("../../src/store.mjs"),
+    import("./runtime/src/service.mjs"),
+    import("./runtime/src/store.mjs"),
   ]);
   const store = createStore(dataDir);
   const manager = createServiceManager();
-  const html = await readFile(join(context.pluginRoot, "miniapp/client/index.html"), "utf8");
+  const nodeRoot = dirname(fileURLToPath(import.meta.url));
+  const html = await readFile(join(nodeRoot, "../client/index.html"), "utf8");
   let disposed = false;
 
   const server = createServer(async (request, response) => {
