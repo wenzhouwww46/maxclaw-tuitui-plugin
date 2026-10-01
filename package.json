@@ -1,6 +1,6 @@
 {
   "name": "maxclaw-tuitui-plugin",
-  "version": "5.0.6",
+  "version": "5.0.7",
   "private": true,
   "type": "module",
   "engines": {
@@ -11,7 +11,9 @@
     "test:miniapp": "node test/miniapp.mjs",
     "test:settings": "node test/settings-persistence.mjs",
     "test:exec": "node --test test/exec.mjs",
-    "test:listener-status": "node --test test/listener-status.mjs"
+    "test:listener-status": "node --test test/listener-status.mjs",
+    "test:singleton": "node --test test/listener-singleton.mjs",
+    "test:listener-flow": "node --test test/listener-flow.mjs"
   },
   "mcode": {
     "schemaVersion": 2,

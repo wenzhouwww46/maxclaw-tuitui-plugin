@@ -2,6 +2,7 @@
 import { createMcpHandler } from "./src/mcp.mjs";
 import { readPublicConfig, readCredentials, paths as storePaths } from "./src/store.mjs";
 import { startListener } from "./src/listener.mjs";
+import { acquireListenerSingleton } from "./src/listener-singleton.mjs";
 import { startSettings } from "./src/settings.mjs";
 import { chmodSync, unlinkSync, writeFileSync } from "node:fs";
 
@@ -17,13 +18,19 @@ if (process.argv.includes("--settings-service")) {
   process.once("SIGTERM", stop); process.once("SIGINT", stop);
   setInterval(() => {}, 60_000);
 } else if (process.argv.includes("--listener-service")) {
-  const credentials = readCredentials();
-  if (!credentials) { console.error("Tuitui credentials are not configured"); process.exitCode = 1; }
-  else {
-    const listener = startListener({ ...readPublicConfig(), ...credentials });
-    process.on("exit", () => {});
-    const stop = async () => { await listener.close(); process.exit(0); };
-    process.once("SIGTERM", stop); process.once("SIGINT", stop);
+  const lease = acquireListenerSingleton(storePaths().dataDir);
+  if (!lease) {
+    console.error("Tuitui listener already running");
+    process.exitCode = 2;
+  } else {
+    process.once("exit", () => lease.release());
+    const credentials = readCredentials();
+    if (!credentials) { console.error("Tuitui credentials are not configured"); process.exitCode = 1; }
+    else {
+      const listener = startListener({ ...readPublicConfig(), ...credentials });
+      const stop = async () => { await listener.close(); lease.release(); process.exit(0); };
+      process.once("SIGTERM", stop); process.once("SIGINT", stop);
+    }
   }
 } else {
   const handle = createMcpHandler();

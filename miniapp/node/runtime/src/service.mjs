@@ -69,28 +69,63 @@ export function createServiceManager(options = {}) {
       return { url: endpoint.url };
     },
     status() {
-      if (!listener) {
-        const pidFile = storePaths().listenerPid;
-        try { const pid = Number(readFileSync(pidFile, "utf8")); if (pid > 0) { process.kill(pid, 0); listenerProcess = { pid, exitCode: null, kill: signal => process.kill(pid, signal) }; listener = { status: () => ({ closed: false, running: true, queued: 0 }), close: async () => { try { process.kill(pid, "SIGTERM"); } catch {} try { unlinkSync(pidFile); } catch {} } }; } } catch {}
+      if (options.startListener && listener) {
+        const state = listener.status?.() || { closed: false, running: true, queued: 0 };
+        return { listener: { running: !state.closed, ...state }, configured: Boolean(readCredentials()), config: readPublicConfig(), tasks: tasks.list() };
+      }
+      const pidFile = storePaths().listenerPid;
+      let pid = 0;
+      try { pid = Number(readFileSync(pidFile, "utf8")); process.kill(pid, 0); }
+      catch { pid = 0; }
+      if (pid > 0) {
+        listenerProcess = { pid, kill: signal => process.kill(pid, signal) };
+        listener = { status: () => ({ closed: false, running: true, queued: 0 }) };
+      } else {
+        listenerProcess = null;
+        listener = null;
       }
       const listenerStatus = listener?.status?.() || { running: false, closed: false, queued: 0 };
-      return { listener: { running: Boolean(listener && !listenerStatus.closed), ...listenerStatus }, configured: Boolean(readCredentials()), config: readPublicConfig(), tasks: tasks.list() };
+      return { listener: { running: Boolean(pid), ...listenerStatus }, configured: Boolean(readCredentials()), config: readPublicConfig(), tasks: tasks.list() };
     },
     async listenerStart(config = {}) {
-      if (listener) return manager.status();
+      if (manager.status().listener.running) return manager.status();
       const credentials = readCredentials();
       if (!credentials) throw new Error("Tuitui credentials are not configured");
-      if (options.startListener) listener = await startListener({ ...readPublicConfig(), ...config, ...credentials }, { ...(options.dependencies || {}), tasks });
-      else {
-        listenerProcess = (options.spawn || spawn)(process.execPath, [join(PACKAGE_ROOT, "server.js"), "--listener-service"], { stdio: "ignore", detached: true });
-        listenerProcess.unref?.();
-        mkdirSync(storePaths().dataDir, { recursive: true, mode: 0o700 });
-        writeFileSync(storePaths().listenerPid, String(listenerProcess.pid || ""), { mode: 0o600 });
-        listener = { status: () => ({ closed: listenerProcess.exitCode !== null, running: listenerProcess.exitCode === null, queued: 0 }), close: () => new Promise(resolve => { if (!listenerProcess || listenerProcess.exitCode !== null) return resolve(); listenerProcess.once("close", resolve); listenerProcess.kill("SIGTERM"); }) };
+      if (options.startListener) {
+        listener = await startListener({ ...readPublicConfig(), ...config, ...credentials }, { ...(options.dependencies || {}), tasks });
+        return { ...manager.status(), listener: { running: true, ...(listener.status?.() || {}) } };
+      }
+      const child = (options.spawn || spawn)(process.execPath, [join(PACKAGE_ROOT, "server.js"), "--listener-service"], { stdio: "ignore", detached: true });
+      child.unref?.();
+      const deadline = Date.now() + 5_000;
+      while (Date.now() < deadline) {
+        const current = manager.status();
+        if (current.listener.running) return current;
+        if (child.exitCode !== null) throw new Error(`Tuitui listener exited during startup (code ${child.exitCode})`);
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      throw new Error("Tuitui listener did not become ready");
+    },
+    async listenerStop() {
+      if (options.startListener && listener) {
+        await listener.close?.();
+        listener = null;
+        return manager.status();
+      }
+      const current = manager.status();
+      if (current.listener.running && listenerProcess?.pid) {
+        const pid = listenerProcess.pid;
+        try { process.kill(pid, "SIGTERM"); } catch (error) { if (error?.code !== "ESRCH") throw error; }
+        const deadline = Date.now() + 5_000;
+        while (Date.now() < deadline && manager.status().listener.running) {
+          await new Promise(resolve => setTimeout(resolve, 50));
+        }
+        if (manager.status().listener.running) throw new Error("Tuitui listener did not stop");
+      } else if (listener?.close) {
+        await listener.close(); listener = null;
       }
       return manager.status();
     },
-    async listenerStop() { if (listener) { await listener.close?.(); try { unlinkSync(storePaths().listenerPid); } catch {} listener = null; listenerProcess = null; } return manager.status(); },
     taskStatus(id) { if (id == null || id === "") return tasks.list(); return tasks.get(String(id)); },
     taskCancel(id) { return tasks.requestCancel(String(id)); },
     serviceArtifact(platformOptions = {}) { return serviceArtifact(platformOptions); },
