@@ -1,7 +1,12 @@
 import { createServer } from "node:http";
+import { readFile } from "node:fs/promises";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { readPublicConfig, saveCredentials, saveConfig } from "./store.mjs";
 import { SETTINGS_PAGE } from "./settings-page.mjs";
+
+const PACKAGE_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 
 function token() { return randomBytes(32).toString("base64url"); }
 function same(a, b) { const x = Buffer.from(a || ""); const y = Buffer.from(b || ""); return x.length === y.length && timingSafeEqual(x, y); }
@@ -23,25 +28,33 @@ function body(req) {
   });
 }
 
-export function startSettings() {
+export async function startSettings({ manager } = {}) {
   const sessionToken = token();
+  let pageHtml = SETTINGS_PAGE;
+  try { pageHtml = await readFile(join(PACKAGE_ROOT, "miniapp/client/index.html"), "utf8"); } catch {}
   const server = createServer(async (req, res) => {
     const pathname = new URL(req.url, "http://127.0.0.1").pathname;
     if (!validLoopbackHost(req.headers.host)) return json(res, 400, { error: "invalid host" });
     const origin = req.headers.origin;
     if (origin && !/^https?:\/\/(?:127\.0\.0\.1|localhost)(?::\d+)?$/.test(origin)) return json(res, 403, { error: "invalid origin" });
-    if (req.method === "GET" && pathname === "/") {
+    if (req.method === "GET" && ["/", "/settings", "/settings/"].includes(pathname)) {
       res.writeHead(200, { "content-type": "text/html; charset=utf-8", "cache-control": "no-store", "x-content-type-options": "nosniff" });
-      return res.end(SETTINGS_PAGE);
+      return res.end(pageHtml);
     }
     if (!same(req.headers["x-maxclaw-session"], sessionToken)) return json(res, 403, { error: "invalid session" });
     if (req.method === "GET" && pathname === "/api/config") return json(res, 200, readPublicConfig());
+    if (req.method === "GET" && pathname === "/api/status") return json(res, 200, manager?.status?.() || { configured: Boolean(readPublicConfig().credentials?.configured), listener: { running: false }, tasks: [] });
+    if (req.method === "GET" && pathname === "/api/tasks") return json(res, 200, manager?.taskStatus?.() || []);
     if (req.method !== "POST") return json(res, 404, { error: "not found" });
     if (!origin) return json(res, 403, { error: "origin required" });
     try {
       const input = await body(req);
       if (pathname === "/api/credentials") { saveCredentials(input); return json(res, 204, {}); }
       if (pathname === "/api/config") { saveConfig(input); return json(res, 204, {}); }
+      if (pathname === "/api/listener/start") return json(res, 200, await manager.listenerStart(input));
+      if (pathname === "/api/listener/stop") return json(res, 200, await manager.listenerStop());
+      const cancelMatch = pathname.match(/^\/api\/tasks\/([^/]+)\/cancel$/u);
+      if (cancelMatch) return json(res, 200, manager.taskCancel(decodeURIComponent(cancelMatch[1])));
       return json(res, 404, { error: "not found" });
     } catch (error) { return json(res, 400, { error: error.message || "invalid request" }); }
   });

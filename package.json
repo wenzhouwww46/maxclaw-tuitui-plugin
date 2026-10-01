@@ -1,6 +1,6 @@
 {
   "name": "maxclaw-tuitui-plugin",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "private": true,
   "type": "module",
   "engines": {
@@ -8,7 +8,8 @@
   },
   "scripts": {
     "test": "node test/portable-package.mjs",
-    "test:miniapp": "node test/miniapp.mjs"
+    "test:miniapp": "node test/miniapp.mjs",
+    "test:settings": "node test/settings-persistence.mjs"
   },
   "mcode": {
     "schemaVersion": 2,

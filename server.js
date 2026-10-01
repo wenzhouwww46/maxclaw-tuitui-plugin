@@ -1,9 +1,22 @@
 #!/usr/bin/env node
 import { createMcpHandler } from "./src/mcp.mjs";
-import { readPublicConfig, readCredentials } from "./src/store.mjs";
+import { readPublicConfig, readCredentials, paths as storePaths } from "./src/store.mjs";
 import { startListener } from "./src/listener.mjs";
+import { startSettings } from "./src/settings.mjs";
+import { chmodSync, unlinkSync, writeFileSync } from "node:fs";
 
-if (process.argv.includes("--listener-service")) {
+if (process.argv.includes("--settings-service")) {
+  const { createServiceManager } = await import("./src/service.mjs");
+  const settings = await startSettings({ manager: createServiceManager() });
+  const endpointFile = process.env.MAXCLAW_TUITUI_SETTINGS_ENDPOINT_FILE || storePaths().settingsEndpoint;
+  writeFileSync(endpointFile, JSON.stringify({ url: settings.url, pid: process.pid }) + "\n", { mode: 0o600 });
+  chmodSync(endpointFile, 0o600);
+  const stop = async () => {
+    try { await settings.close(); } finally { try { unlinkSync(endpointFile); } catch {} process.exit(0); }
+  };
+  process.once("SIGTERM", stop); process.once("SIGINT", stop);
+  setInterval(() => {}, 60_000);
+} else if (process.argv.includes("--listener-service")) {
   const credentials = readCredentials();
   if (!credentials) { console.error("Tuitui credentials are not configured"); process.exitCode = 1; }
   else {

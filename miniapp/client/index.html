@@ -94,7 +94,7 @@
 <script>
 const $ = (id) => document.getElementById(id);
 const notice = (message, error = false) => { $('notice').textContent = message || ''; $('notice').className = error ? 'error' : ''; };
-const api = async (path, options) => { const response = await fetch(path, { cache: 'no-store', ...options }); const text = await response.text(); let data = {}; try { data = text ? JSON.parse(text) : {}; } catch {} if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`); return data; };
+const api = async (path, options = {}) => { const headers = { ...(options.headers || {}) }; const session = new URLSearchParams(location.search).get('session'); if (session) headers['x-maxclaw-session'] = session; const response = await fetch(path, { cache: 'no-store', ...options, headers }); const text = await response.text(); let data = {}; try { data = text ? JSON.parse(text) : {}; } catch {} if (!response.ok) throw new Error(data.error || `请求失败（${response.status}）`); return data; };
 const setNumber = (id, value, fallback) => { $(id).value = Number.isFinite(Number(value)) ? Number(value) : fallback; };
 function renderTasks(tasks) { if (!Array.isArray(tasks) || tasks.length === 0) { $('tasks').textContent = '暂无任务'; return; } $('tasks').innerHTML = `<table><thead><tr><th>状态</th><th>路由</th><th>提示</th><th>时间</th></tr></thead><tbody>${tasks.slice(-20).reverse().map(task => `<tr><td>${escapeHtml(task.status)}</td><td>${escapeHtml(task.route)}</td><td>${escapeHtml(task.prompt)}</td><td>${escapeHtml(new Date(task.createdAt).toLocaleString())}</td></tr>`).join('')}</tbody></table>`; }
 function escapeHtml(value) { return String(value ?? '').replace(/[&<>'"]/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[char])); }

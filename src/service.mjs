@@ -34,8 +34,40 @@ export function createServiceManager(options = {}) {
   let listenerProcess = null;
   let settings = null;
   const tasks = options.tasks || new TaskStore();
+  async function readEndpoint(endpointFile) {
+    try {
+      const value = JSON.parse(readFileSync(endpointFile, "utf8"));
+      if (!value?.url) return null;
+      const response = await fetch(value.url, { signal: AbortSignal.timeout(500) });
+      return response.ok ? value : null;
+    } catch { return null; }
+  }
+  async function waitForEndpoint(endpointFile, child) {
+    const deadline = Date.now() + 5000;
+    while (Date.now() < deadline) {
+      const value = await readEndpoint(endpointFile);
+      if (value) return value;
+      if (child.exitCode !== null) break;
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    throw new Error("settings page service did not start");
+  }
   const manager = {
-    async settingsOpen() { settings ||= await (options.startSettings || startSettings)(); return { url: settings.url }; },
+    async settingsOpen() {
+      if (settings?.url && await readEndpoint(storePaths().settingsEndpoint)) return { url: settings.url };
+      const endpointFile = storePaths().settingsEndpoint;
+      const existing = await readEndpoint(endpointFile);
+      if (existing) { settings = existing; return { url: existing.url }; }
+      try { unlinkSync(endpointFile); } catch {}
+      if (options.startSettings) { settings = await options.startSettings(); return { url: settings.url }; }
+      const child = spawn(process.execPath, [join(PACKAGE_ROOT, "server.js"), "--settings-service"], {
+        stdio: "ignore", detached: true, env: { ...process.env, MAXCLAW_TUITUI_SETTINGS_ENDPOINT_FILE: endpointFile },
+      });
+      child.unref?.();
+      const endpoint = await waitForEndpoint(endpointFile, child);
+      settings = endpoint;
+      return { url: endpoint.url };
+    },
     status() {
       if (!listener) {
         const pidFile = storePaths().listenerPid;

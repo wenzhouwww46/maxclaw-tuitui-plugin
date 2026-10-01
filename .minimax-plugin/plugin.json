@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "name": "maxclaw-tuitui",
   "displayName": "maxclaw Tuitui",
-  "version": "5.0.2",
+  "version": "5.0.3",
   "description": "Manage a user-enabled Tuitui listener through MiniMax Code.",
   "author": "maxclaw",
   "icon": "icon.png",

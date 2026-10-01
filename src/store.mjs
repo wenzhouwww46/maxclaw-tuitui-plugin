@@ -55,7 +55,7 @@ function createStoreForDirectory(dataDir) {
       credentials: { configured: Boolean(credentials), appid: credentials?.appid ? redact(credentials.appid) : null },
     };
   }
-  function paths() { return { dataDir, config: configFile, credentials: credentialsFile, listenerPid: join(dataDir, "listener.pid") }; }
+  function paths() { return { dataDir, config: configFile, credentials: credentialsFile, listenerPid: join(dataDir, "listener.pid"), settingsEndpoint: join(dataDir, "settings-endpoint.json") }; }
   function resetForTests() { for (const path of [configFile, credentialsFile]) { try { requireNotAvailable(path); } catch {} } }
   return { saveCredentials, readCredentials, saveConfig, readPublicConfig, paths, resetForTests };
 }
