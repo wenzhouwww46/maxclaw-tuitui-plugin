@@ -81,6 +81,9 @@ try {
   const isolatedPage = await fetch(`http://${isolatedContext.listen.host}:${isolatedContext.listen.port}/`);
   assert.equal(isolatedPage.status, 200);
   assert.match(await isolatedPage.text(), /maxclaw Tuitui/);
+  const runtimeExec = await readFile(join(isolatedRoot, "node/runtime/src/exec.mjs"), "utf8");
+  assert.doesNotMatch(runtimeExec, /sessionId \? "--session" : "--continue"/);
+  assert.match(runtimeExec, /mcode returned no JSON output/);
 } finally {
   await isolatedLifecycle.dispose();
   await rm(isolatedRoot, { recursive: true, force: true });

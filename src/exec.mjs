@@ -1,7 +1,10 @@
+import { mkdirSync } from "node:fs";
 import { spawn as nodeSpawn } from "node:child_process";
 import { randomUUID } from "node:crypto";
+import { join } from "node:path";
 import { resolveMcode } from "./mcode-resolver.mjs";
 import { getSession, setSession } from "./router.mjs";
+import { DATA_DIR } from "./store.mjs";
 
 function jsonResult(text) {
   const value = JSON.parse(text);
@@ -9,10 +12,18 @@ function jsonResult(text) {
   return value;
 }
 
-export function parseResult(text, exitCode) {
+export function parseResult(text, exitCode, stderr = "") {
   let value;
-  try { value = jsonResult(text); } catch (error) {
-    return { status: exitCode === 0 ? "error" : "failed", output: "", error: error.message };
+  const trimmed = String(text || "").trim();
+  if (!trimmed) {
+    return {
+      status: exitCode === 0 ? "error" : "failed",
+      output: "",
+      error: stderr.trim() || `mcode returned no JSON output (exit code ${exitCode})`,
+    };
+  }
+  try { value = jsonResult(trimmed); } catch (error) {
+    return { status: exitCode === 0 ? "error" : "failed", output: "", error: stderr.trim() || `mcode returned invalid JSON: ${error.message}` };
   }
   const status = exitCode === 0 ? (typeof value.status === "string" ? value.status : "success") : "failed";
   return {
@@ -37,12 +48,14 @@ export async function execute(route, prompt, files = [], options = {}) {
   const resolved = options.entry ? { entry: options.entry } : resolveMcode(options.mcodePath);
   if (!resolved.entry) return { status: "error", output: "", sessionId: getSession(route, options.sessionFile), runId, durationMs: Date.now() - started, error: resolved.error || "mcode entry unavailable" };
   const sessionId = getSession(route, options.sessionFile);
-  const args = [resolved.entry, "exec", sessionId ? "--session" : "--continue", ...(sessionId ? [sessionId] : []), "--output-format", "json", "--prompt-mode", "work", "--input", "-"];
+  const cwd = options.cwd || join(DATA_DIR, "workspace");
+  mkdirSync(cwd, { recursive: true, mode: 0o700 });
+  const args = [resolved.entry, "exec", ...(sessionId ? ["--session", sessionId] : []), "--output-format", "json", "--prompt-mode", "work", "--input", "-"];
   for (const file of Array.isArray(files) ? files : []) args.push("--file", String(file));
   const spawn = options.spawn || nodeSpawn;
   const signal = options.signal;
   let child;
-  try { child = spawn(process.execPath, args, { cwd: options.cwd, env: options.env ? { ...process.env, ...options.env } : process.env, signal }); }
+  try { child = spawn(process.execPath, args, { cwd, env: options.env ? { ...process.env, ...options.env } : process.env, signal }); }
   catch (error) { return { status: "error", output: "", sessionId, runId, durationMs: Date.now() - started, error: error.message }; }
   let stdout = "", stderr = "", timedOut = false, cancelled = false;
   const timer = setTimeout(() => { timedOut = true; child.kill?.("SIGTERM"); }, timeoutMs);
@@ -54,7 +67,7 @@ export async function execute(route, prompt, files = [], options = {}) {
     child.stdin?.end(prompt);
     const code = await new Promise((resolve, reject) => { child.once("error", reject); child.once("close", resolve); });
     if (timedOut || cancelled) return { status: timedOut ? "timeout" : "cancelled", output: "", sessionId, runId, durationMs: Date.now() - started, error: timedOut ? "execution timed out" : "execution cancelled" };
-    const parsed = parseResult(stdout.trim(), code);
+    const parsed = parseResult(stdout.trim(), code, stderr.trim());
     const result = { ...parsed, sessionId: parsed.sessionId || sessionId, runId: parsed.runId || runId, durationMs: Date.now() - started };
     progress.output?.(result.output || result.error || result.status);
     if (code === 0 && result.sessionId && result.sessionId !== sessionId) setSession(route, result.sessionId, options.sessionFile);
