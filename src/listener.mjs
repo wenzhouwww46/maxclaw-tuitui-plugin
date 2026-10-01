@@ -2,7 +2,7 @@ import { stat, mkdir, writeFile } from "node:fs/promises";
 import { createWriteStream } from "node:fs";
 import { basename, join } from "node:path";
 import { randomUUID } from "node:crypto";
-import { TuituiBotClient } from "@qihoo/tuitui-bot-sdk";
+import { TuituiBotClient } from "../vendor/tuitui-bot-sdk/dist/index.js";
 import { DATA_DIR } from "./store.mjs";
 import { execute } from "./exec.mjs";
 import { routeKey, clearSession } from "./router.mjs";

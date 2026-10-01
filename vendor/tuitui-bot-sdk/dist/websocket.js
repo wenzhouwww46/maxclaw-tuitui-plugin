@@ -7,7 +7,7 @@ const DEFAULT_HEARTBEAT_TIMEOUT_SECONDS = 60;
 const DEFAULT_DEDUPLICATION_SIZE = 1000;
 const DEFAULT_DEDUPLICATION_TTL_SECONDS = 1200;
 async function defaultFactory(url) {
-    const { default: NodeWebSocket } = await import("ws");
+    const { default: NodeWebSocket } = await import("../../ws/wrapper.mjs");
     return new NodeWebSocket(url);
 }
 async function textFromData(data) {
