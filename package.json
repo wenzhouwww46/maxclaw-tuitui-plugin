@@ -1,12 +1,17 @@
 {
   "name": "maxclaw-tuitui-plugin",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=20"
   },
   "scripts": {
-    "test": "node test/portable-package.mjs"
+    "test": "node test/portable-package.mjs",
+    "test:miniapp": "node test/miniapp.mjs"
+  },
+  "mcode": {
+    "schemaVersion": 2,
+    "miniApp": "./miniapp/miniapp.json"
   }
 }

@@ -2,14 +2,16 @@
   "schemaVersion": 1,
   "name": "maxclaw-tuitui",
   "displayName": "maxclaw Tuitui",
-  "version": "5.0.1",
+  "version": "5.0.2",
   "description": "Manage a user-enabled Tuitui listener through MiniMax Code.",
   "author": "maxclaw",
   "icon": "icon.png",
   "darkIcon": "icon-dark.png",
   "category": "Code",
   "exampleQueries": [
-    "Use maxclaw Tuitui to check listener status."
+    "打开 maxclaw Tuitui 设置页配置推推 IM",
+    "查看 maxclaw Tuitui 监听器状态",
+    "启动 maxclaw Tuitui 监听器"
   ],
   "apps": [],
   "mcpServers": [

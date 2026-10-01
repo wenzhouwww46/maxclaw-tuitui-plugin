@@ -5,6 +5,8 @@ description: Manage the explicitly enabled maxclaw Tuitui listener and inspect i
 
 # maxclaw Tuitui
 
+在 MiniMax Code 中可以说“打开 maxclaw Tuitui 设置页”进入内嵌设置页面，配置推推 IM App ID、Secret、监听器参数，并从页面启动或停止监听器。
+
 Check prerequisites before starting the listener: Node.js 20+ must run, `mcode --version` must
 succeed, and MiniMax Code must already have a working provider configured. There is no
 `maxclaw_initialize` tool; `maxclaw_status` reports whether credentials are configured and whether
